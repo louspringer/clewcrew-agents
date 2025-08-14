@@ -79,3 +79,76 @@ class BaseExpert(ABC):
         confidence = base_confidence - (high_priority * 0.1) - (critical_priority * 0.2)
 
         return max(0.0, min(1.0, confidence))
+
+    # Quality Integration Methods
+    async def generate_quality_metrics(self, project_path: Path) -> dict[str, Any]:
+        """
+        Generate quality metrics for this expert's domain.
+        
+        This method should be implemented by subclasses to provide
+        domain-specific quality metrics that can be integrated with
+        the quality system.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            Dictionary containing quality metrics and scores
+        """
+        # Default implementation - subclasses should override
+        return {
+            "quality_score": 0.0,
+            "issues_found": 0,
+            "recommendations": [],
+            "confidence": 0.0
+        }
+
+    async def provide_quality_recommendations(self, project_path: Path) -> list[str]:
+        """
+        Provide quality improvement recommendations for this expert's domain.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            List of actionable quality improvement recommendations
+        """
+        # Default implementation - subclasses should override
+        return ["Implement domain-specific quality analysis"]
+
+    async def assess_quality_impact(self, changes: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Assess the impact of proposed changes on quality metrics.
+        
+        Args:
+            changes: List of proposed changes
+            
+        Returns:
+            Dictionary containing impact assessment
+        """
+        # Default implementation - subclasses should override
+        return {
+            "quality_impact": "unknown",
+            "risk_level": "medium",
+            "recommendations": ["Review changes for quality impact"]
+        }
+
+    def get_quality_metric_name(self) -> str:
+        """
+        Get the name of the quality metric this expert contributes to.
+        
+        Returns:
+            String identifier for the quality metric
+        """
+        # Default implementation - subclasses should override
+        return "general_quality"
+
+    def get_quality_metric_weight(self) -> float:
+        """
+        Get the weight of this expert's quality metric.
+        
+        Returns:
+            Float weight for the quality metric (higher = more important)
+        """
+        # Default implementation - subclasses should override
+        return 1.0

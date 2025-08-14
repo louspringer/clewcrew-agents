@@ -287,3 +287,115 @@ class CodeQualityExpert(BaseExpert):
                 })
 
         return fixes
+
+    # Quality Integration Methods
+    async def generate_quality_metrics(self, project_path: Path) -> dict[str, Any]:
+        """
+        Generate code quality metrics for integration with quality system.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            Dictionary containing code quality metrics
+        """
+        # Run code quality analysis
+        result = await self.detect_hallucinations(project_path)
+        
+        # Calculate code quality score
+        if not result.hallucinations:
+            quality_score = 100.0
+        else:
+            # Start with perfect score and penalize for issues
+            quality_score = 100.0
+            
+            for hallucination in result.hallucinations:
+                if hallucination.get("priority") == "critical":
+                    quality_score -= 10.0  # Critical issues are expensive
+                elif hallucination.get("priority") == "high":
+                    quality_score -= 5.0   # High priority issues are costly
+                elif hallucination.get("priority") == "medium":
+                    quality_score -= 2.0   # Medium priority issues are moderate cost
+                else:
+                    quality_score -= 1.0   # Low priority issues are low cost
+            
+            # Ensure score doesn't go below 0
+            quality_score = max(0.0, quality_score)
+        
+        # Extract specific issue types for quality enforcement
+        flake8_issues = [h for h in result.hallucinations if h.get("tool") == "flake8"]
+        code_style_issues = [h for h in result.hallucinations if h.get("type") == "formatting_config"]
+        complexity_issues = [h for h in result.hallucinations if h.get("type") == "type_checking_config"]
+        
+        return {
+            "quality_score": quality_score,
+            "issues_found": len(result.hallucinations),
+            "flake8_issues": flake8_issues,
+            "code_style_issues": code_style_issues,
+            "complexity_issues": complexity_issues,
+            "recommendations": result.recommendations,
+            "confidence": result.confidence,
+            "total_issues": len(result.hallucinations)
+        }
+
+    async def provide_quality_recommendations(self, project_path: Path) -> list[str]:
+        """
+        Provide code quality improvement recommendations.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            List of actionable code quality recommendations
+        """
+        result = await self.detect_hallucinations(project_path)
+        return result.recommendations
+
+    async def assess_quality_impact(self, changes: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Assess the impact of proposed changes on code quality.
+        
+        Args:
+            changes: List of proposed changes
+            
+        Returns:
+            Dictionary containing code quality impact assessment
+        """
+        # Analyze changes for code quality implications
+        quality_risks = []
+        risk_level = "low"
+        
+        for change in changes:
+            change_content = change.get("content", "")
+            
+            # Check for potential code quality issues in changes
+            if len(change_content.split("\n")) > 10:
+                quality_risks.append("Large change that may introduce complexity")
+                risk_level = "medium"
+            
+            if "TODO" in change_content or "FIXME" in change_content:
+                quality_risks.append("Change contains TODO/FIXME comments")
+                risk_level = "low"
+            
+            if "import *" in change_content:
+                quality_risks.append("Change uses wildcard imports")
+                risk_level = "medium"
+        
+        return {
+            "quality_impact": "code_quality_assessment",
+            "risk_level": risk_level,
+            "quality_risks": quality_risks,
+            "recommendations": [
+                "Review changes for code quality implications",
+                "Ensure changes follow project coding standards",
+                "Consider breaking large changes into smaller commits"
+            ]
+        }
+
+    def get_quality_metric_name(self) -> str:
+        """Get the name of the code quality metric."""
+        return "code_quality"
+
+    def get_quality_metric_weight(self) -> float:
+        """Get the weight of the code quality metric."""
+        return 2.0  # Code quality is important but not as critical as security

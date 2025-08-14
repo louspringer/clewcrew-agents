@@ -148,3 +148,104 @@ class SecurityExpert(BaseExpert):
                 total_score += 1.0
 
         return min(10.0, total_score)
+
+    # Quality Integration Methods
+    async def generate_quality_metrics(self, project_path: Path) -> dict[str, Any]:
+        """
+        Generate security quality metrics for integration with quality system.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            Dictionary containing security quality metrics
+        """
+        # Run security analysis
+        result = await self.detect_hallucinations(project_path)
+        
+        # Calculate security quality score
+        if not result.hallucinations:
+            quality_score = 100.0
+        else:
+            # Start with perfect score and penalize for issues
+            quality_score = 100.0
+            
+            for hallucination in result.hallucinations:
+                if hallucination.get("priority") == "critical":
+                    quality_score -= 25.0  # Critical issues are very expensive
+                elif hallucination.get("priority") == "high":
+                    quality_score -= 15.0  # High priority issues are costly
+                else:
+                    quality_score -= 5.0   # Other issues have moderate cost
+            
+            # Ensure score doesn't go below 0
+            quality_score = max(0.0, quality_score)
+        
+        return {
+            "quality_score": quality_score,
+            "issues_found": len(result.hallucinations),
+            "critical_issues": len([h for h in result.hallucinations if h.get("priority") == "critical"]),
+            "high_issues": len([h for h in result.hallucinations if h.get("priority") == "high"]),
+            "security_issues": result.hallucinations,
+            "recommendations": result.recommendations,
+            "confidence": result.confidence,
+            "risk_score": self.calculate_risk_score(result.hallucinations)
+        }
+
+    async def provide_quality_recommendations(self, project_path: Path) -> list[str]:
+        """
+        Provide security quality improvement recommendations.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            List of actionable security quality recommendations
+        """
+        result = await self.detect_hallucinations(project_path)
+        return result.recommendations
+
+    async def assess_quality_impact(self, changes: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Assess the impact of proposed changes on security quality.
+        
+        Args:
+            changes: List of proposed changes
+            
+        Returns:
+            Dictionary containing security impact assessment
+        """
+        # Analyze changes for security implications
+        security_risks = []
+        risk_level = "low"
+        
+        for change in changes:
+            change_content = change.get("content", "")
+            
+            # Check for potential security issues in changes
+            if any(pattern in change_content.lower() for pattern in ["password", "secret", "key", "token"]):
+                security_risks.append("Potential credential exposure in changes")
+                risk_level = "high"
+            
+            if any(pattern in change_content.lower() for pattern in ["subprocess", "os.system", "eval", "exec"]):
+                security_risks.append("Potential command injection risk in changes")
+                risk_level = "critical"
+        
+        return {
+            "quality_impact": "security_assessment",
+            "risk_level": risk_level,
+            "security_risks": security_risks,
+            "recommendations": [
+                "Review all changes for security implications",
+                "Implement security code review process",
+                "Use automated security scanning tools"
+            ]
+        }
+
+    def get_quality_metric_name(self) -> str:
+        """Get the name of the security quality metric."""
+        return "security"
+
+    def get_quality_metric_weight(self) -> float:
+        """Get the weight of the security quality metric."""
+        return 3.0  # Security is highest priority
