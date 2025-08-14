@@ -74,6 +74,105 @@ class TestExpert(BaseExpert):
             recommendations=recommendations,
         )
 
+    # Quality Integration Methods
+    async def generate_quality_metrics(self, project_path: Path) -> dict[str, Any]:
+        """
+        Generate test quality metrics for integration with quality system.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            Dictionary containing test quality metrics
+        """
+        result = await self.detect_hallucinations(project_path)
+        
+        # Calculate test quality score based on existing data
+        test_data = await self._find_existing_test_data(project_path)
+        
+        if not test_data:
+            # No test infrastructure
+            quality_score = 0.0
+        elif not result.hallucinations:
+            # Tests configured and passing
+            quality_score = 95.0
+        elif len(result.hallucinations) <= 3:
+            # Minor test issues
+            quality_score = 80.0
+        elif len(result.hallucinations) <= 7:
+            # Moderate test issues
+            quality_score = 60.0
+        else:
+            # Major test issues
+            quality_score = 30.0
+        
+        return {
+            "quality_score": quality_score,
+            "issues_found": len(result.hallucinations),
+            "test_files_found": len(test_data),
+            "recommendations": result.recommendations,
+            "confidence": result.confidence,
+            "total_issues": len(result.hallucinations)
+        }
+
+    async def provide_quality_recommendations(self, project_path: Path) -> list[str]:
+        """
+        Provide test quality improvement recommendations.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            List of quality improvement recommendations
+        """
+        result = await self.detect_hallucinations(project_path)
+        return result.recommendations
+
+    async def assess_quality_impact(self, changes: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Assess the impact of proposed changes on test quality.
+        
+        Args:
+            changes: List of proposed changes
+            
+        Returns:
+            Dictionary containing quality impact assessment
+        """
+        # Analyze changes for test quality risks
+        test_quality_risks = []
+        risk_level = "low"
+        
+        for change in changes:
+            change_type = change.get("type", "unknown")
+            if change_type in ["test_removal", "test_config_change", "coverage_threshold_change"]:
+                test_quality_risks.append(f"Risk: {change_type} may reduce test coverage")
+                risk_level = "medium"
+            elif change_type in ["test_addition", "test_improvement"]:
+                test_quality_risks.append(f"Benefit: {change_type} improves test quality")
+        
+        if test_quality_risks:
+            risk_level = "high"
+        
+        return {
+            "quality_impact": "test_quality_assessment",
+            "risk_level": risk_level,
+            "test_quality_risks": test_quality_risks,
+            "recommendations": [
+                "Review changes for test coverage impact",
+                "Ensure tests remain comprehensive after changes",
+                "Consider adding tests for new functionality",
+                "Maintain test configuration consistency"
+            ]
+        }
+
+    def get_quality_metric_name(self) -> str:
+        """Get the name of the test quality metric."""
+        return "test_coverage"
+
+    def get_quality_metric_weight(self) -> float:
+        """Get the weight of the test quality metric."""
+        return 1.5
+
     async def _find_existing_test_data(self, project_path: Path) -> list[Path]:
         """Find existing test configuration and output files"""
         test_files = []

@@ -73,6 +73,105 @@ class ArchitectureExpert(BaseExpert):
             recommendations=recommendations,
         )
 
+    # Quality Integration Methods
+    async def generate_quality_metrics(self, project_path: Path) -> dict[str, Any]:
+        """
+        Generate architecture quality metrics for integration with quality system.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            Dictionary containing architecture quality metrics
+        """
+        result = await self.detect_hallucinations(project_path)
+        
+        # Calculate architecture quality score based on existing data
+        arch_data = await self._find_existing_architecture_data(project_path)
+        
+        if not arch_data:
+            # No architecture documentation
+            quality_score = 0.0
+        elif not result.hallucinations:
+            # Architecture well-documented and structured
+            quality_score = 85.0
+        elif len(result.hallucinations) <= 3:
+            # Minor architectural issues
+            quality_score = 70.0
+        elif len(result.hallucinations) <= 7:
+            # Moderate architectural issues
+            quality_score = 50.0
+        else:
+            # Major architectural issues
+            quality_score = 20.0
+        
+        return {
+            "quality_score": quality_score,
+            "issues_found": len(result.hallucinations),
+            "arch_files_found": len(arch_data),
+            "recommendations": result.recommendations,
+            "confidence": result.confidence,
+            "total_issues": len(result.hallucinations)
+        }
+
+    async def provide_quality_recommendations(self, project_path: Path) -> list[str]:
+        """
+        Provide architecture quality improvement recommendations.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            List of quality improvement recommendations
+        """
+        result = await self.detect_hallucinations(project_path)
+        return result.recommendations
+
+    async def assess_quality_impact(self, changes: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Assess the impact of proposed changes on architecture quality.
+        
+        Args:
+            changes: List of proposed changes
+            
+        Returns:
+            Dictionary containing quality impact assessment
+        """
+        # Analyze changes for architecture quality risks
+        arch_quality_risks = []
+        risk_level = "low"
+        
+        for change in changes:
+            change_type = change.get("type", "unknown")
+            if change_type in ["arch_change", "structure_change", "dependency_change"]:
+                arch_quality_risks.append(f"Risk: {change_type} may affect system architecture")
+                risk_level = "medium"
+            elif change_type in ["arch_improvement", "structure_improvement"]:
+                arch_quality_risks.append(f"Benefit: {change_type} improves architecture quality")
+        
+        if arch_quality_risks:
+            risk_level = "high"
+        
+        return {
+            "quality_impact": "architecture_quality_assessment",
+            "risk_level": risk_level,
+            "arch_quality_risks": arch_quality_risks,
+            "recommendations": [
+                "Review changes for architectural impact",
+                "Ensure system structure remains coherent",
+                "Update architecture documentation as needed",
+                "Maintain architectural principles and patterns"
+            ]
+        }
+
+    def get_quality_metric_name(self) -> str:
+        """Get the name of the architecture quality metric."""
+        return "architecture_quality"
+
+    def get_quality_metric_weight(self) -> float:
+        """Get the weight of the architecture quality metric."""
+        return 1.0
+
     async def _find_existing_architecture_data(self, project_path: Path) -> list[Path]:
         """Find existing architecture documentation and structure files"""
         arch_files = []

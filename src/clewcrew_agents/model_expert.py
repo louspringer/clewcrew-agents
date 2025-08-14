@@ -68,6 +68,105 @@ class ModelExpert(BaseExpert):
             recommendations=recommendations,
         )
 
+    # Quality Integration Methods
+    async def generate_quality_metrics(self, project_path: Path) -> dict[str, Any]:
+        """
+        Generate model quality metrics for integration with quality system.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            Dictionary containing model quality metrics
+        """
+        result = await self.detect_hallucinations(project_path)
+        
+        # Calculate model quality score based on existing data
+        model_data = await self._find_existing_model_data(project_path)
+        
+        if not model_data:
+            # No model infrastructure
+            quality_score = 0.0
+        elif not result.hallucinations:
+            # Model configured and working
+            quality_score = 92.0
+        elif len(result.hallucinations) <= 3:
+            # Minor model issues
+            quality_score = 78.0
+        elif len(result.hallucinations) <= 7:
+            # Moderate model issues
+            quality_score = 58.0
+        else:
+            # Major model issues
+            quality_score = 28.0
+        
+        return {
+            "quality_score": quality_score,
+            "issues_found": len(result.hallucinations),
+            "model_files_found": len(model_data),
+            "recommendations": result.recommendations,
+            "confidence": result.confidence,
+            "total_issues": len(result.hallucinations)
+        }
+
+    async def provide_quality_recommendations(self, project_path: Path) -> list[str]:
+        """
+        Provide model quality improvement recommendations.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            List of quality improvement recommendations
+        """
+        result = await self.detect_hallucinations(project_path)
+        return result.recommendations
+
+    async def assess_quality_impact(self, changes: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Assess the impact of proposed changes on model quality.
+        
+        Args:
+            changes: List of proposed changes
+            
+        Returns:
+            Dictionary containing quality impact assessment
+        """
+        # Analyze changes for model quality risks
+        model_quality_risks = []
+        risk_level = "low"
+        
+        for change in changes:
+            change_type = change.get("type", "unknown")
+            if change_type in ["model_config_change", "hyperparameter_change", "architecture_change"]:
+                model_quality_risks.append(f"Risk: {change_type} may affect model performance")
+                risk_level = "medium"
+            elif change_type in ["model_improvement", "config_improvement"]:
+                model_quality_risks.append(f"Benefit: {change_type} improves model quality")
+        
+        if model_quality_risks:
+            risk_level = "high"
+        
+        return {
+            "quality_impact": "model_quality_assessment",
+            "risk_level": risk_level,
+            "model_quality_risks": model_quality_risks,
+            "recommendations": [
+                "Review changes for model performance impact",
+                "Ensure model configuration remains stable",
+                "Test model changes with validation data",
+                "Maintain model monitoring and evaluation"
+            ]
+        }
+
+    def get_quality_metric_name(self) -> str:
+        """Get the name of the model quality metric."""
+        return "model_quality"
+
+    def get_quality_metric_weight(self) -> float:
+        """Get the weight of the model quality metric."""
+        return 1.3
+
     async def _find_existing_model_data(self, project_path: Path) -> list[Path]:
         """Find existing model configuration and output files"""
         model_files = []

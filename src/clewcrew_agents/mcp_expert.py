@@ -68,6 +68,105 @@ class MCPExpert(BaseExpert):
             recommendations=recommendations,
         )
 
+    # Quality Integration Methods
+    async def generate_quality_metrics(self, project_path: Path) -> dict[str, Any]:
+        """
+        Generate MCP quality metrics for integration with quality system.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            Dictionary containing MCP quality metrics
+        """
+        result = await self.detect_hallucinations(project_path)
+        
+        # Calculate MCP quality score based on existing data
+        mcp_data = await self._find_existing_mcp_data(project_path)
+        
+        if not mcp_data:
+            # No MCP infrastructure
+            quality_score = 0.0
+        elif not result.hallucinations:
+            # MCP configured and working
+            quality_score = 87.0
+        elif len(result.hallucinations) <= 3:
+            # Minor MCP issues
+            quality_score = 73.0
+        elif len(result.hallucinations) <= 7:
+            # Moderate MCP issues
+            quality_score = 53.0
+        else:
+            # Major MCP issues
+            quality_score = 23.0
+        
+        return {
+            "quality_score": quality_score,
+            "issues_found": len(result.hallucinations),
+            "mcp_files_found": len(mcp_data),
+            "recommendations": result.recommendations,
+            "confidence": result.confidence,
+            "total_issues": len(result.hallucinations)
+        }
+
+    async def provide_quality_recommendations(self, project_path: Path) -> list[str]:
+        """
+        Provide MCP quality improvement recommendations.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            List of quality improvement recommendations
+        """
+        result = await self.detect_hallucinations(project_path)
+        return result.recommendations
+
+    async def assess_quality_impact(self, changes: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Assess the impact of proposed changes on MCP quality.
+        
+        Args:
+            changes: List of proposed changes
+            
+        Returns:
+            Dictionary containing quality impact assessment
+        """
+        # Analyze changes for MCP quality risks
+        mcp_quality_risks = []
+        risk_level = "low"
+        
+        for change in changes:
+            change_type = change.get("type", "unknown")
+            if change_type in ["mcp_config_change", "server_change", "client_change"]:
+                mcp_quality_risks.append(f"Risk: {change_type} may affect MCP connectivity")
+                risk_level = "medium"
+            elif change_type in ["mcp_improvement", "config_improvement"]:
+                mcp_quality_risks.append(f"Benefit: {change_type} improves MCP quality")
+        
+        if mcp_quality_risks:
+            risk_level = "high"
+        
+        return {
+            "quality_impact": "mcp_quality_assessment",
+            "risk_level": risk_level,
+            "mcp_quality_risks": mcp_quality_risks,
+            "recommendations": [
+                "Review changes for MCP connectivity impact",
+                "Ensure MCP configuration remains stable",
+                "Test MCP changes in isolated environment",
+                "Maintain MCP monitoring and health checks"
+            ]
+        }
+
+    def get_quality_metric_name(self) -> str:
+        """Get the name of the MCP quality metric."""
+        return "mcp_quality"
+
+    def get_quality_metric_weight(self) -> float:
+        """Get the weight of the MCP quality metric."""
+        return 1.1
+
     async def _find_existing_mcp_data(self, project_path: Path) -> list[Path]:
         """Find existing MCP configuration and log files"""
         mcp_files = []

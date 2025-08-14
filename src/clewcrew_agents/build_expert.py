@@ -68,6 +68,105 @@ class BuildExpert(BaseExpert):
             recommendations=recommendations,
         )
 
+    # Quality Integration Methods
+    async def generate_quality_metrics(self, project_path: Path) -> dict[str, Any]:
+        """
+        Generate build quality metrics for integration with quality system.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            Dictionary containing build quality metrics
+        """
+        result = await self.detect_hallucinations(project_path)
+        
+        # Calculate build quality score based on existing data
+        build_data = await self._find_existing_build_data(project_path)
+        
+        if not build_data:
+            # No build infrastructure
+            quality_score = 0.0
+        elif not result.hallucinations:
+            # Build configured and working
+            quality_score = 88.0
+        elif len(result.hallucinations) <= 3:
+            # Minor build issues
+            quality_score = 72.0
+        elif len(result.hallucinations) <= 7:
+            # Moderate build issues
+            quality_score = 52.0
+        else:
+            # Major build issues
+            quality_score = 22.0
+        
+        return {
+            "quality_score": quality_score,
+            "issues_found": len(result.hallucinations),
+            "build_files_found": len(build_data),
+            "recommendations": result.recommendations,
+            "confidence": result.confidence,
+            "total_issues": len(result.hallucinations)
+        }
+
+    async def provide_quality_recommendations(self, project_path: Path) -> list[str]:
+        """
+        Provide build quality improvement recommendations.
+        
+        Args:
+            project_path: Path to the project to analyze
+            
+        Returns:
+            List of quality improvement recommendations
+        """
+        result = await self.detect_hallucinations(project_path)
+        return result.recommendations
+
+    async def assess_quality_impact(self, changes: list[dict[str, Any]]) -> dict[str, Any]:
+        """
+        Assess the impact of proposed changes on build quality.
+        
+        Args:
+            changes: List of proposed changes
+            
+        Returns:
+            Dictionary containing quality impact assessment
+        """
+        # Analyze changes for build quality risks
+        build_quality_risks = []
+        risk_level = "low"
+        
+        for change in changes:
+            change_type = change.get("type", "unknown")
+            if change_type in ["build_config_change", "dependency_change", "tool_change"]:
+                build_quality_risks.append(f"Risk: {change_type} may affect build stability")
+                risk_level = "medium"
+            elif change_type in ["build_improvement", "tool_improvement"]:
+                build_quality_risks.append(f"Benefit: {change_type} improves build quality")
+        
+        if build_quality_risks:
+            risk_level = "high"
+        
+        return {
+            "quality_impact": "build_quality_assessment",
+            "risk_level": risk_level,
+            "build_quality_risks": build_quality_risks,
+            "recommendations": [
+                "Review changes for build pipeline impact",
+                "Ensure build configuration remains stable",
+                "Test build changes in isolated environment",
+                "Maintain build automation and monitoring"
+            ]
+        }
+
+    def get_quality_metric_name(self) -> str:
+        """Get the name of the build quality metric."""
+        return "build_quality"
+
+    def get_quality_metric_weight(self) -> float:
+        """Get the weight of the build quality metric."""
+        return 1.2
+
     async def _find_existing_build_data(self, project_path: Path) -> list[Path]:
         """Find existing build configuration and log files"""
         build_files = []
