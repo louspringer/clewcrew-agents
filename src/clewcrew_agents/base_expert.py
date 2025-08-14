@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """
 Base Expert Class for clewcrew Agents
+
+CRITICAL REQUIREMENTS:
+- Agents MUST analyze existing tool outputs, logs, and artifacts
+- Agents MUST NOT run expensive linting, testing, or analysis tools
+- Agents MUST provide recommendations based on existing data
+- Agents MUST be lightweight and efficient
+- This is a FUNDAMENTAL principle - do not violate it
 """
 
 import logging
@@ -20,7 +27,11 @@ class HallucinationResult:
 
 
 class BaseExpert(ABC):
-    """Base class for all expert agents"""
+    """Base class for all expert agents
+    
+    CRITICAL: This class enforces the principle that agents analyze existing data,
+    they do NOT run expensive tools. All agents must follow this principle.
+    """
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -28,7 +39,14 @@ class BaseExpert(ABC):
 
     @abstractmethod
     async def detect_hallucinations(self, project_path: Path) -> HallucinationResult:
-        """Detect hallucinations in the project"""
+        """Detect hallucinations by analyzing existing tool outputs and logs
+        
+        CRITICAL REQUIREMENTS:
+        - MUST analyze existing files, logs, and tool outputs
+        - MUST NOT run expensive tools (flake8, black, mypy, etc.)
+        - MUST be lightweight and efficient
+        - MUST provide actionable recommendations based on existing data
+        """
         pass
 
     async def validate_findings(self, findings: list[dict[str, Any]]) -> dict[str, Any]:
